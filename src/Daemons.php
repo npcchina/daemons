@@ -71,7 +71,7 @@ class Daemons{
             static::log ( 'could not fork child process');
         } else if ($_pid ) {
             //父进程 fork 成功 退出
-            static::log('child process is started with pid '.$_pid);
+            static::log('process started with pid '.$_pid);
             exit ( 0 );
         }
 
@@ -82,7 +82,7 @@ class Daemons{
 
         //获取启动进程的pid
         static::$_pid = posix_getpid();
-        static::log('process start with pid '.static::$_pid);
+        static::log('process started with pid '.static::$_pid);
 
         //写入pid 为何放置在这边 因为尝试用root 身份创建了 pid 以及 log 下文切换为非用户身份后会导致写入失败
         static::savePid();
@@ -112,6 +112,54 @@ class Daemons{
             {
                 static::log( 'can not run as '.static::$runAsUser);
             }
+        }
+    }
+
+    public static function isAlive($pid)
+    {
+        return $pid && posix_kill($pid, 0);
+    }
+
+    public static function stop($pid)
+    {
+        //如果进程非运行中
+        if(!static::isAlive($pid))
+        {
+            static::log('process is not running');
+        }
+        //尝试向进程发送停止信号
+        posix_kill($pid, SIGINT);
+        $timeout = 5; //超时时间
+        $start = time();
+        while(1)
+        {
+            // 检查进程是否存活
+            if(static::isAlive($pid))
+            {
+                // 检查是否超过$timeout时间
+                if(time() - $start >= $timeout)
+                {
+                    static::log('process stop failed');
+
+                    //exit？
+                    break;
+                }
+                usleep(10000);
+                continue;
+            }
+            static::log('process stopped successful');
+        }
+    }
+
+    public static function reload($pid)
+    {
+        //TODO 此处的sleep 本意是等待原始进程退出 正确清理 可以存在也可以不存在
+        //TODO 探讨？此处不存在是存在问题：比如 原始业务退出时间过长
+        //如果进程非运行中
+        if(static::isAlive($pid))
+        {
+            //尝试向进程发送停止信号
+            posix_kill($pid, SIGUSR1);
         }
     }
 
@@ -149,47 +197,17 @@ class Daemons{
 
         //特殊命令处理 TODO
         $pid = @file_get_contents(static::getPidFile());
-        //检查进程是否在运行
-        $isAlive = $pid && posix_kill($pid, 0);
         //停止命令
         if(isset(static::$arguments['stop']))
         {
-            //如果进程非运行中
-            if(!$isAlive)
-            {
-                static::log('process is not running');
-            }
-            //尝试向进程发送停止信号
-            posix_kill($pid, SIGINT);
-            $timeout = 5; //超时时间
-            $start = time();
-            while(1)
-            {
-                // 检查主进程是否存活
-                $isAlive = posix_kill($pid, 0);
-                if($isAlive)
-                {
-                    // 检查是否超过$timeout时间
-                    if(time() - $start >= $timeout)
-                    {
-                        static::log('process stopped failed');
-                    }
-                    usleep(10000);
-                    continue;
-                }
-                static::log('process stopped successful');
-            }
+            static::stop($pid);
         }
         //平滑重启逻辑
-        else if(isset(static::$arguments['reload']) && $isAlive)
+        else if(isset(static::$arguments['reload']))
         {
-            //尝试向进程发送重启信号
-            posix_kill($pid, SIGUSR1);
-            //TODO 此处的sleep 本意是等待原始进程退出 正确清理 可以存在也可以不存在
-            //TODO 探讨？此处不存在是存在问题：比如 原始业务退出时间过长
-            //sleep(2);
+            static::reload($pid);
         }
-        else if($isAlive)
+        else if(static::isAlive($pid))
         {
             //进程已经存在 默认退出
             static::log('process is running with pid '.$pid);
@@ -263,6 +281,7 @@ class Daemons{
                 exit(0);
                 break;
             case SIGUSR1:
+            case SIGUSR2:
                 static::log('reload signal');
                 exit(0);
                 break;
@@ -394,7 +413,7 @@ class Daemons{
             exit();
         }
 
-        file_put_contents(static::getLogFile(),static::_debug().$message.PHP_EOL,FILE_APPEND);
+        file_put_contents(static::getLogFile(),static::_debug() .'['.static::$_pid.'] '. $message.PHP_EOL,FILE_APPEND);
     }
 
     /**
@@ -417,7 +436,7 @@ class Daemons{
         return date('Y-m-d H:i:s').'('.($usec + $sec - $time).'--'.round(memory_get_usage(true) /1024 / 1024 - $memory).'MB)';
     }
 
-    public function run()
+    public function run(callable $function)
     {
 
     }
