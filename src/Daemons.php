@@ -71,7 +71,7 @@ class Daemons{
             static::log ( 'could not fork child process');
         } else if ($_pid ) {
             //父进程 fork 成功 退出
-            static::log('process started with pid '.$_pid);
+            static::log('child process is started with pid '.$_pid);
             exit ( 0 );
         }
 
@@ -82,7 +82,7 @@ class Daemons{
 
         //获取启动进程的pid
         static::$_pid = posix_getpid();
-        static::log('process started with pid '.static::$_pid);
+        static::log('process start with pid '.static::$_pid);
 
         //写入pid 为何放置在这边 因为尝试用root 身份创建了 pid 以及 log 下文切换为非用户身份后会导致写入失败
         static::savePid();
@@ -112,54 +112,6 @@ class Daemons{
             {
                 static::log( 'can not run as '.static::$runAsUser);
             }
-        }
-    }
-
-    public static function isAlive($pid)
-    {
-        return $pid && posix_kill($pid, 0);
-    }
-
-    public static function stop($pid)
-    {
-        //如果进程非运行中
-        if(!static::isAlive($pid))
-        {
-            static::log('process is not running');
-        }
-        //尝试向进程发送停止信号
-        posix_kill($pid, SIGINT);
-        $timeout = 5; //超时时间
-        $start = time();
-        while(1)
-        {
-            // 检查进程是否存活
-            if(static::isAlive($pid))
-            {
-                // 检查是否超过$timeout时间
-                if(time() - $start >= $timeout)
-                {
-                    static::log('process stop failed');
-
-                    //exit？
-                    break;
-                }
-                usleep(10000);
-                continue;
-            }
-            static::log('process stopped successful');
-        }
-    }
-
-    public static function reload($pid)
-    {
-        //TODO 此处的sleep 本意是等待原始进程退出 正确清理 可以存在也可以不存在
-        //TODO 探讨？此处不存在是存在问题：比如 原始业务退出时间过长
-        //如果进程非运行中
-        if(static::isAlive($pid))
-        {
-            //尝试向进程发送停止信号
-            posix_kill($pid, SIGUSR1);
         }
     }
 
@@ -197,17 +149,47 @@ class Daemons{
 
         //特殊命令处理 TODO
         $pid = @file_get_contents(static::getPidFile());
+        //检查进程是否在运行
+        $isAlive = $pid && posix_kill($pid, 0);
         //停止命令
         if(isset(static::$arguments['stop']))
         {
-            static::stop($pid);
+            //如果进程非运行中
+            if(!$isAlive)
+            {
+                static::log('process is not running');
+            }
+            //尝试向进程发送停止信号
+            posix_kill($pid, SIGINT);
+            $timeout = 5; //超时时间
+            $start = time();
+            while(1)
+            {
+                // 检查主进程是否存活
+                $isAlive = posix_kill($pid, 0);
+                if($isAlive)
+                {
+                    // 检查是否超过$timeout时间
+                    if(time() - $start >= $timeout)
+                    {
+                        static::log('process stopped failed');
+                    }
+                    usleep(10000);
+                    continue;
+                }
+                static::log('process stopped successful');
+            }
         }
         //平滑重启逻辑
-        else if(isset(static::$arguments['reload']))
+        else if(isset(static::$arguments['reload']) && $isAlive)
         {
-            static::reload($pid);
+            //尝试向进程发送重启信号
+            posix_kill($pid, SIGUSR1);
+            //TODO 此处的sleep 本意是等待原始进程退出 正确清理 可以存在也可以不存在
+            //TODO 探讨？此处不存在是存在问题：比如 原始业务退出时间过长
+            //sleep(2);
         }
-        else if(static::isAlive($pid))
+        else if($isAlive)
         {
             //进程已经存在 默认退出
             static::log('process is running with pid '.$pid);
@@ -306,18 +288,20 @@ class Daemons{
      * 如果接管了某信号但是不对其进行响应 结果就是进程会忽略对应的信号
      *
      */
-    protected function registerSignalHandler()
+    protected static function registerSignalHandler()
     {
+        $signalHandler = '\Npc\Daemons::signalHandler';
+
         //接管系统信号
-        pcntl_signal(SIGTERM, [$this,'signalHandler'], false);
+        pcntl_signal(SIGTERM, $signalHandler, false);
         //不允许的行为
         //pcntl_signal(SIGKILL, [$this,'signalHandler'], false);
         //自定义的停止信号
-        pcntl_signal(SIGINT, [$this,'signalHandler'], false);
+        pcntl_signal(SIGINT, $signalHandler, false);
         //自定义的重启信号
-        pcntl_signal(SIGUSR1, [$this,'signalHandler'], false);
+        pcntl_signal(SIGUSR1, $signalHandler, false);
         //尚未用到
-        pcntl_signal(SIGUSR2, [$this,'signalHandler'], false);
+        pcntl_signal(SIGUSR2, $signalHandler, false);
         //尚未用到
         $reg = pcntl_signal(SIGPIPE, SIG_IGN, false);
 
@@ -413,7 +397,7 @@ class Daemons{
             exit();
         }
 
-        file_put_contents(static::getLogFile(),static::_debug() .'['.static::$_pid.'] '. $message.PHP_EOL,FILE_APPEND);
+        file_put_contents(static::getLogFile(),static::_debug().' ['.static::$_pid.'] '.$message.PHP_EOL,FILE_APPEND);
     }
 
     /**
@@ -438,7 +422,7 @@ class Daemons{
 
     public function run(callable $function)
     {
-
+        call_user_func($function);
     }
 
     public function runOnce(callable $function)
