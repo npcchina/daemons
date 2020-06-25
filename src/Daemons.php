@@ -214,7 +214,7 @@ class Daemons{
         @mkdir(static::$pidDir.DIRECTORY_SEPARATOR);
         if(false === @file_put_contents(static::getPidFile(), static::$_pid))
         {
-            throw new Exception('can not save pid to ' . static::getPidFile());
+            throw new \Exception('can not save pid to ' . static::getPidFile());
         }
     }
 
@@ -313,11 +313,18 @@ class Daemons{
      */
     public function registerShutdownHandler()
     {
+        static::log('register shutdown ');
         register_shutdown_function(array($this,'shutdownHandler'));
     }
 
     /**
      * 程序退出记录
+     *
+     * 注意，这个函数经过测试 即便子进程不执行 依然是会被调用！！！ 可能和 内存堆栈和fork 核心有关系
+     *
+     * 看说明是说 exit 之后会被调用 子进程 exit 之后也会被调用
+     *
+     * Registers a callback to be executed after script execution finishes or exit() is called.
      */
     public static function shutdownHandler()
     {
@@ -331,6 +338,8 @@ class Daemons{
             static::log(static::getErrorType($errors['type']) . " {$errors['message']} in {$errors['file']} on line {$errors['line']}");
         }
 
+        static::log(' unlink ?');
+
         //执行pid 清理？
         @unlink(static::getPidFile());
 
@@ -339,6 +348,8 @@ class Daemons{
         //此处是否需要？
         //exit(0)
     }
+
+
 
     /**
      * 获取错误类型对应的意义 from workerman
