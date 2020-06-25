@@ -458,7 +458,8 @@ class Worker
      *
      * 监测
      *
-     * TODO 文件变动 志rotate
+     * TODO 文件变动 日志rotate 貌似得用libevent
+     * TODO
      */
     public static function monitorWorkers()
     {
