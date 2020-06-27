@@ -3,10 +3,10 @@ use Npc\Worker;
 require_once __DIR__ .'/../vendor/autoload.php';
 
 $worker = new Worker();
-$worker::$worker_num = 100;
+$worker::$worker_num = 1;
 $worker->job(function() use($worker){
         $worker::log($worker::$index);
-        exit();
+        sleep(1);
 });
 
 $worker->run();

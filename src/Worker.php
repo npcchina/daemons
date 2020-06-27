@@ -39,7 +39,6 @@ class Worker
         static::registerSignalHandlerMaster();
         static::forkWorkers();
         static::registerShutdownHandler();
-        static::log('看看子进程是否会执行 这个shutdownHandler 位置似乎不影响 而且 shutdown function 可能是额外钩子 监测主进程的');
         static::monitorWorkers();
     }
 
@@ -428,9 +427,6 @@ class Worker
         {
             //以下为子进程执行任务代码的逻辑
             //TODO 异常退出 while 循环导致的 register shutdown function 触发问题
-
-            srand();
-            mt_srand();
             //worker 要处理的事情
             //记得清理一些从父集成来的变量
             //记录自己的pid
@@ -450,7 +446,6 @@ class Worker
             }
 //            die();
             exit(255);
-            static::log('跳过 exit 测试');
         }
     }
 
@@ -465,9 +460,11 @@ class Worker
     {
         while(1)
         {
+            //这个重要 否则就无法退出这个循环了
             static::signalDispatch();
 
             $status = 0;
+            //进入阻塞模式
             $pid = pcntl_wait($status,WUNTRACED);
             if($pid > 0)
             {
@@ -481,13 +478,6 @@ class Worker
                     static::log('尝试fork新进程');
                     static::forkOneWorker($index);
                 }
-            }
-
-            //TODO 还有问题 特别是调用 stop 的地方
-            // If shutdown state and all child processes exited then master process exit.
-            if (static::$_status === static::STATUS_SHUTDOWN || empty(static::$workers)) {
-                //TODO exit
-                static::log('测试是否执行到');
             }
         }
     }
