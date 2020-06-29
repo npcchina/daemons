@@ -10,20 +10,23 @@ class Worker
 
     public static $arguments = [];
     protected static $uniqueName = '';
-    protected static $logDir = '/var/log';
+    public static $logDir = '/var/log';
     public static $logFile = null;
-    protected static $pidDir = '/var/run';
+    public static $logRotate = 86400; //日志轮换时间
+    protected static $_logRotateTime = 0; //上次日志轮换时间
+    public static $pidDir = '/var/run';
     public static $pidFile = null;
-    protected static $stdoutFile = '/dev/null';
-    protected static $runAsUser = 'npc'; //设置进程允许在某个用户模式下
+    public static $stdoutFile = '/dev/null';
+    public static $runAsUser = 'npc'; //设置进程允许在某个用户模式下
+    protected static $_startTime = 0; //任务开始时间
 
     protected static $_pid = null;
     protected static $_masterPid = null;
 
     //worker 相关的变量
     public static $index = 0;
-    public static $worker_num = 1;
-    protected static $workers = [];
+    public static $workerNum = 1;
+    protected static $_workers = [];
     protected static $_job = null;
     protected static $_status = self::STATUS_STARTING;
 
@@ -212,6 +215,10 @@ class Worker
         $userInfo = posix_getpwnam(static::$runAsUser);
         if($userInfo['uid'] != posix_getuid() || $userInfo['gid'] != posix_getgid())
         {
+            //修改日志所属用户
+            chown(static::getLogFile(),$userInfo['uid']);
+
+            //尝试进入用户态
             if(!posix_setgid($userInfo['gid']) || !posix_setuid($userInfo['uid']))
             {
                 static::log( '无法以用户 '.static::$runAsUser .' 的身份执行');
@@ -340,17 +347,17 @@ class Worker
      */
     public static function _debug()
     {
-        static $time,$memory;
+        static $memory;
 
         list ($usec, $sec) = explode(" ", microtime());
 
-        if(!$time)
+        if(!static::$_startTime)
         {
-            $time = $usec + $sec;
+            static::$_startTime = $usec + $sec;
             $memory = memory_get_usage(true)/1024 / 1024;
         }
 
-        return date('Y-m-d H:i:s').'('.($usec + $sec - $time).'--'.round(memory_get_usage(true) /1024 / 1024 - $memory).'MB)';
+        return date('Y-m-d H:i:s').'('.($usec + $sec - static::$_startTime).'--'.round(memory_get_usage(true) /1024 / 1024 - $memory).'MB)';
     }
 
     /**
@@ -372,7 +379,7 @@ class Worker
      */
     static function getWorkerPid($index)
     {
-        return isset(static::$workers[$index]) ? static::$workers[$index] : 0;
+        return isset(static::$_workers[$index]) ? static::$_workers[$index] : 0;
     }
 
     /**
@@ -383,7 +390,7 @@ class Worker
      */
     static function getWorkerIndex($pid)
     {
-        foreach(static::$workers as $index => $_pid)
+        foreach(static::$_workers as $index => $_pid)
         {
             if($_pid === $pid){
                 return $index;
@@ -396,7 +403,7 @@ class Worker
      */
     public static function forkWorkers()
     {
-        for($index = 1;$index <= static::$worker_num;$index++)
+        for($index = 1;$index <= static::$workerNum;$index++)
         {
             static::forkOneWorker($index);
         }
@@ -421,7 +428,7 @@ class Worker
             throw new Exception('创建子进程失败');
         } else if ($pid ) {
             //父进程记录创建的子进程信息
-            static::$workers[$index] = $pid;
+            static::$_workers[$index] = $pid;
         }
         else
         {
@@ -432,7 +439,7 @@ class Worker
             //记录自己的pid
             static::$_pid = posix_getpid();
             static::$index = $index;
-            static::$workers = [];
+            static::$_workers = [];
             //主要用做清理一些父进程注册的信号 如果有特殊需求的话
             static::registerSignalHandlerChild();
             //默认循环 TODO 可以外层自带循环 系统提供循环处理能力
@@ -458,19 +465,22 @@ class Worker
      */
     public static function monitorWorkers()
     {
+//        static::timer();
         while(1)
         {
             //这个重要 否则就无法退出这个循环了
             static::signalDispatch();
 
             $status = 0;
-            //进入阻塞模式
-            $pid = pcntl_wait($status,WUNTRACED);
+            //进入阻塞模式 会一直等待 下面的其他代码只有 捕获子进程退出之后才会执行
+            //$pid = pcntl_wait($status,WUNTRACED);
+            //非阻塞模式 可以做其他事情
+            $pid = pcntl_wait($status,WNOHANG);
             if($pid > 0)
             {
                 static::log('监测到子进程退出 '.$pid);
                 $index = static::getWorkerIndex($pid);
-                unset(static::$workers[$index]);
+                unset(static::$_workers[$index]);
 
                 //当不是在停止的时候 启动新进程
                 if(static::$_status !== static::STATUS_SHUTDOWN)
@@ -479,9 +489,47 @@ class Worker
                     static::forkOneWorker($index);
                 }
             }
+
+            //以下代码 pcntl wait nohang 才能执行的
+            //尝试日志逻辑 rotate
+            static::logRotate();
+            sleep(1);
         }
     }
 
+    /**
+     * 日志定时清理
+     */
+    public static function logRotate()
+    {
+        if(floor((time() - static::$_logRotateTime) / static::$logRotate) >= 1)
+        {
+            static::$_logRotateTime = time();
+            static::log('执行日志清理'.static::$_logRotateTime);
+
+            $fp = fopen(static::getLogFile(),'r+');
+            ftruncate($fp,0);
+            fclose($fp);
+        }
+    }
+
+    /**
+     * 试验性质模块 本意是 pcntl_wait 和 event loop 如果能并发最好 目前看 无法并发
+     *
+     * 现采用 pcntl 非阻塞模式
+     */
+    public static function timer()
+    {
+
+        $base = new \EventBase();
+        $timer = new \Event( $base, -1, \Event::TIMEOUT | \Event::PERSIST, function(){
+            static::log('event loop '.time());
+        } );
+        $tick = 2;
+        $timer->add(  $tick );
+        //加入这个后 后续就都不执行了 TODO ！！！
+        $base->loop();
+    }
 
     /**
      * 判断子进程是否存活
@@ -507,14 +555,14 @@ class Worker
     {
         static::$_status = self::STATUS_SHUTDOWN;
         //尝试发送中止信号
-        foreach(static::$workers as $index => $pid)
+        foreach(static::$_workers as $index => $pid)
         {
             posix_kill($pid, SIGINT);
 //            posix_kill($pid, SIGTERM);
         }
 
         //尝试查询子进程状态
-        foreach(static::$workers as $index => $pid)
+        foreach(static::$_workers as $index => $pid)
         {
             $timeout = 5; //超时时间
             $start = time();
@@ -523,7 +571,7 @@ class Worker
                 //检查子进程状态
                 if(!static::isChildAlive($pid))
                 {
-                    unset(static::$workers[$index]);
+                    unset(static::$_workers[$index]);
                     break;
                 }
                 // 检查是否超过$timeout时间
@@ -536,13 +584,13 @@ class Worker
             }
         }
 
-        if(empty(static::$workers))
+        if(empty(static::$_workers))
         {
             static::log('所有子进程退出完毕');
         }
         else
         {
-            static::log('部分子进程退出失败 ['.implode(',',static::$workers).']');
+            static::log('部分子进程退出失败 ['.implode(',',static::$_workers).']');
         }
     }
 
