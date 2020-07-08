@@ -75,10 +75,10 @@ class Qiniu
      * @param $lifetime
      * @return null
      */
-    public function cacheGet($key, $lifetime = 7200)
+    public function cacheGet($key)
     {
         if ($this->storage) {
-            return $this->storage->get($key, $lifetime);
+            return $this->storage->get($key);
         } else {
             return null;
         }
@@ -91,10 +91,10 @@ class Qiniu
      * @param $lifetime
      * @return bool
      */
-    public function cacheExists($key, $lifetime = 6600)
+    public function cacheExists($key)
     {
         if ($this->storage) {
-            return $this->storage->get($key, $lifetime);
+            return $this->storage->get($key);
         } else {
             return false;
         }
@@ -127,11 +127,8 @@ class Qiniu
         $expires = $expires ? $expires : $this->uploadTokenExpire;
         $key = $key ? $key : $this->uploadKey;
 
-        if ($this->cacheExists($bucket.'_'.$key.'_token',$expires - 600)) {
-            return $this->cacheGet($bucket.'_'.$key.'_token',$expires - 600);
-        } else {
-            return $this->refreshUploadToken($bucket, $key, $expires, $policy, $strictPolicy);
-        }
+        $token = $this->cacheGet($bucket.'_'.$key.'_token');
+        return $token ?  $token : $this->refreshUploadToken($bucket, $key, $expires, $policy, $strictPolicy);
     }
 
     /**
