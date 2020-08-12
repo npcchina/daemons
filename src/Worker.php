@@ -1,4 +1,5 @@
 <?php
+
 namespace Npc;
 
 class Worker
@@ -9,7 +10,8 @@ class Worker
     const STATUS_RELOADING = 8;
 
     public static $arguments = [];
-    protected static $uniqueName = '';
+    protected static $_script = '';
+    protected static $_uniqueName = '';
     public static $logDir = '/var/log';
     public static $logFile = null;
     public static $logRotate = 86400; //日志轮换时间
@@ -19,6 +21,7 @@ class Worker
     public static $stdoutFile = '/dev/null';
     public static $runAsUser = 'npc'; //设置进程允许在某个用户模式下
     protected static $_startTime = 0; //任务开始时间
+    public static $watch = false; //监视文件
 
     protected static $_pid = null;
     protected static $_masterPid = null;
@@ -50,15 +53,15 @@ class Worker
      */
     protected static function init()
     {
-        $backtrace        = \debug_backtrace();
+        $backtrace = \debug_backtrace();
 
         //获取执行脚本名
-        static::$uniqueName = basename($backtrace[\count($backtrace) - 1]['file'],'.php');
+        static::$_script = $backtrace[\count($backtrace) - 1]['file'];
+        static::$_uniqueName = basename(static::$_script, '.php');
 
-        if(!\is_file(static::getLogFile()))
-        {
+        if (!\is_file(static::getLogFile())) {
             \touch(static::getLogFile());
-            \chmod(static::getLogFile(),0622);
+            \chmod(static::getLogFile(), 0622);
         }
 
     }
@@ -73,28 +76,23 @@ class Worker
     {
         global $argv;
 
-        foreach($argv as $k => $v)
-        {
-            if(trim($v,'-') !== $v)
-            {
-                $v = trim($v,'-');
+        foreach ($argv as $k => $v) {
+            if (trim($v, '-') !== $v) {
+                $v = trim($v, '-');
                 //TODO 此处 $param 变量定义了 空参的默认行为 --stop 等同于 --stop=true
                 $param = true;
-                if(stripos($v,'=') !== false)
-                {
-                    list($v,$param) = explode('=',$v);
+                if (stripos($v, '=') !== false) {
+                    list($v, $param) = explode('=', $v);
                 }
-                static::$arguments[$v] = isset($argv[$k+1]) && stripos($argv[$k+1],'-') === false ? $argv[$k+1] : $param;
+                static::$arguments[$v] = isset($argv[$k + 1]) && stripos($argv[$k + 1], '-') === false ? $argv[$k + 1] : $param;
             }
         }
 
-        if(isset(static::$arguments['logFile']))
-        {
+        if (isset(static::$arguments['logFile'])) {
             static::$logFile = static::$arguments['logFile'];
         }
 
-        if(isset(static::$arguments['pidFile']))
-        {
+        if (isset(static::$arguments['pidFile'])) {
             static::$pidFile = static::$arguments['pidFile'];
         }
 
@@ -103,26 +101,21 @@ class Worker
         //检查进程是否在运行
         $isAlive = $pid && posix_kill($pid, 0);
         //停止命令
-        if(isset(static::$arguments['stop']))
-        {
+        if (isset(static::$arguments['stop'])) {
             //如果进程非运行中
-            if(!$isAlive)
-            {
+            if (!$isAlive) {
                 static::log('进程并未运行');
             }
             //尝试向进程发送停止信号
             posix_kill($pid, SIGINT);
             $timeout = 5; //超时时间
             $start = time();
-            while(1)
-            {
+            while (1) {
                 // 检查主进程是否存活
                 $isAlive = posix_kill($pid, 0);
-                if($isAlive)
-                {
+                if ($isAlive) {
                     // 检查是否超过$timeout时间
-                    if(time() - $start >= $timeout)
-                    {
+                    if (time() - $start >= $timeout) {
                         static::log('尝试停止进程失败');
                     }
                     usleep(10000);
@@ -133,21 +126,16 @@ class Worker
                 //所以下面的 exit 被省略了 依然能够退出
                 exit(0);
             }
-        }
-
-        //平滑重启逻辑
-        else if(isset(static::$arguments['reload']) && $isAlive)
-        {
+        } //平滑重启逻辑
+        else if (isset(static::$arguments['reload']) && $isAlive) {
             //尝试向进程发送重启信号
             posix_kill($pid, SIGUSR1);
             //TODO 此处的sleep 本意是等待原始进程退出 正确清理 可以存在也可以不存在
             //TODO 探讨？此处不存在是存在问题：比如 原始业务退出时间过长
             //sleep(2);
-        }
-        else if($isAlive)
-        {
+        } else if ($isAlive) {
             //进程已经存在 默认退出
-            static::log('进程已经运行中 '.$pid);
+            static::log('进程已经运行中 ' . $pid);
         }
     }
 
@@ -157,33 +145,31 @@ class Worker
     protected static function daemon()
     {
         //检查扩展
-        if(!function_exists('posix_kill') || !function_exists('pcntl_fork'))
-        {
+        if (!function_exists('posix_kill') || !function_exists('pcntl_fork')) {
             static::log('请重新编译PHP 加入 --enable-pcntl 去掉 --disable-posix');
         }
 
         //检查运行模式
-        if(php_sapi_name() != 'cli')
-        {
+        if (php_sapi_name() != 'cli') {
             static::log('当前脚本只能运行在 CLI 模式');
         }
 
         //尝试fork 子进程
-        $_pid  = pcntl_fork ();
-        if (static::$_pid  == - 1) {
-            static::log ( '创建子进程失败');
-        } else if ($_pid ) {
+        $_pid = pcntl_fork();
+        if (static::$_pid == -1) {
+            static::log('创建子进程失败');
+        } else if ($_pid) {
             //父进程 fork 成功 退出
-            static::log('创建进程成功 '.$_pid .' 切换入后台模式');
-            exit ( 0 );
+            static::log('创建进程成功 ' . $_pid . ' 切换入后台模式');
+            exit (0);
         }
 
         //因为父进程已经在前面 exit
         //以下代码都是在fork 出来的子进程中进行执行 所有输出都将写入日志文件
 
         //进程尝试从当前终端脱离成为独立进程 -- 这个在 fork 之前和之后都可以调用
-        if (posix_setsid () == - 1) {
-            throw new Exception( '尝试从当前终端脱离失败');
+        if (posix_setsid() == -1) {
+            throw new Exception('尝试从当前终端脱离失败');
         }
 
         //获取当前进程pid
@@ -195,7 +181,8 @@ class Worker
         static::savePid();
 
         //尝试将进程切换入用户态 可以省略
-        static::setProcessUser();
+        //static::setProcessUser();
+        //为了实现重启逻辑 主进程不切入用户态
     }
 
     /**
@@ -207,21 +194,19 @@ class Worker
      */
     protected static function setProcessUser()
     {
-        if(empty(static::$runAsUser) || posix_getuid() !== 0) // 0 run as root ?
+        if (empty(static::$runAsUser) || posix_getuid() !== 0) // 0 run as root ?
         {
             return;
         }
         //获取指定用户名用户系统信息
         $userInfo = posix_getpwnam(static::$runAsUser);
-        if($userInfo['uid'] != posix_getuid() || $userInfo['gid'] != posix_getgid())
-        {
+        if ($userInfo['uid'] != posix_getuid() || $userInfo['gid'] != posix_getgid()) {
             //修改日志所属用户
-            chown(static::getLogFile(),$userInfo['uid']);
+            chown(static::getLogFile(), $userInfo['uid']);
 
             //尝试进入用户态
-            if(!posix_setgid($userInfo['gid']) || !posix_setuid($userInfo['uid']))
-            {
-                static::log( '无法以用户 '.static::$runAsUser .' 的身份执行');
+            if (!posix_setgid($userInfo['gid']) || !posix_setuid($userInfo['uid'])) {
+                static::log('无法以用户 ' . static::$runAsUser . ' 的身份执行');
             }
         }
     }
@@ -232,7 +217,7 @@ class Worker
      */
     protected static function getPidFile()
     {
-        return static::$pidFile ? static::$pidFile : static::$pidDir.DIRECTORY_SEPARATOR.static::$uniqueName.'.pid';
+        return static::$pidFile ? static::$pidFile : static::$pidDir . DIRECTORY_SEPARATOR . static::$_uniqueName . '.pid';
     }
 
     /**
@@ -241,9 +226,8 @@ class Worker
      */
     protected static function savePid()
     {
-        @mkdir(static::$pidDir.DIRECTORY_SEPARATOR);
-        if(false === @file_put_contents(static::getPidFile(), static::$_pid))
-        {
+        @mkdir(static::$pidDir . DIRECTORY_SEPARATOR);
+        if (false === @file_put_contents(static::getPidFile(), static::$_pid)) {
             throw new \Exception('写入PID文件失败 请检查是否有文件写入权限 ' . static::getPidFile());
         }
     }
@@ -254,7 +238,7 @@ class Worker
      */
     protected static function getLogFile()
     {
-        return static::$logFile ? static::$logFile : static::$logDir.DIRECTORY_SEPARATOR.static::$uniqueName.'.log';
+        return static::$logFile ? static::$logFile : static::$logDir . DIRECTORY_SEPARATOR . static::$_uniqueName . '.log';
     }
 
 
@@ -265,17 +249,14 @@ class Worker
     protected static function resetStd()
     {
         global $STDOUT, $STDERR;
-        $handle = fopen(static::$stdoutFile,"a");
-        if($handle)
-        {
+        $handle = fopen(static::$stdoutFile, "a");
+        if ($handle) {
             unset($handle);
             @fclose(STDOUT);
             @fclose(STDERR);
-            $STDOUT = fopen(static::$stdoutFile,"a");
-            $STDERR = fopen(static::$stdoutFile,"a");
-        }
-        else
-        {
+            $STDOUT = fopen(static::$stdoutFile, "a");
+            $STDERR = fopen(static::$stdoutFile, "a");
+        } else {
             throw new Exception('can not open stdoutFile ' . static::$stdoutFile);
         }
     }
@@ -287,8 +268,7 @@ class Worker
      */
     protected static function getErrorType($type)
     {
-        switch($type)
-        {
+        switch ($type) {
             case E_ERROR: // 1 //
                 return 'E_ERROR';
             case E_WARNING: // 2 //
@@ -331,13 +311,12 @@ class Worker
     public static function log($message = '')
     {
         //非子进程内部 日志直接输出
-        if(!static::$_pid)
-        {
-            echo $message.PHP_EOL;
+        if (!static::$_pid) {
+            echo $message . PHP_EOL;
             exit();
         }
 
-        file_put_contents(static::getLogFile(),static::_debug().' ['.static::$_pid.'] '.$message.PHP_EOL,FILE_APPEND);
+        file_put_contents(static::getLogFile(), static::_debug() . ' [' . static::$_pid . '] ' . $message . PHP_EOL, FILE_APPEND);
     }
 
     /**
@@ -351,13 +330,12 @@ class Worker
 
         list ($usec, $sec) = explode(" ", microtime());
 
-        if(!static::$_startTime)
-        {
+        if (!static::$_startTime) {
             static::$_startTime = $usec + $sec;
-            $memory = memory_get_usage(true)/1024 / 1024;
+            $memory = memory_get_usage(true) / 1024 / 1024;
         }
 
-        return date('Y-m-d H:i:s').'('.($usec + $sec - static::$_startTime).'--'.round(memory_get_usage(true) /1024 / 1024 - $memory).'MB)';
+        return date('Y-m-d H:i:s') . '(' . ($usec + $sec - static::$_startTime) . '--' . round(memory_get_usage(true) / 1024 / 1024 - $memory) . 'MB)';
     }
 
     /**
@@ -390,9 +368,8 @@ class Worker
      */
     static function getWorkerIndex($pid)
     {
-        foreach(static::$_workers as $index => $_pid)
-        {
-            if($_pid === $pid){
+        foreach (static::$_workers as $index => $_pid) {
+            if ($_pid === $pid) {
                 return $index;
             }
         }
@@ -403,8 +380,7 @@ class Worker
      */
     public static function forkWorkers()
     {
-        for($index = 1;$index <= static::$workerNum;$index++)
-        {
+        for ($index = 1; $index <= static::$workerNum; $index++) {
             static::forkOneWorker($index);
         }
     }
@@ -417,21 +393,21 @@ class Worker
     public static function forkOneWorker($index)
     {
         $pid = static::getWorkerPid($index);
-        if($pid)
-        {
+        if ($pid) {
             return;
         }
 
         //尝试fork 子进程
-        $pid  = pcntl_fork ();
-        if ($pid  == - 1) {
+        $pid = pcntl_fork();
+        if ($pid == -1) {
             throw new Exception('创建子进程失败');
-        } else if ($pid ) {
+        } else if ($pid) {
             //父进程记录创建的子进程信息
             static::$_workers[$index] = $pid;
-        }
-        else
-        {
+        } else {
+            //子进程切入用户态
+            static::setProcessUser();
+
             //以下为子进程执行任务代码的逻辑
             //TODO 异常退出 while 循环导致的 register shutdown function 触发问题
             //worker 要处理的事情
@@ -443,8 +419,7 @@ class Worker
             //主要用做清理一些父进程注册的信号 如果有特殊需求的话
             static::registerSignalHandlerChild();
             //默认循环 TODO 可以外层自带循环 系统提供循环处理能力
-            while(1)
-            {
+            while (1) {
                 static::signalDispatch();
                 call_user_func(static::$_job);
 //                break;
@@ -466,8 +441,7 @@ class Worker
     public static function monitorWorkers()
     {
 //        static::timer();
-        while(1)
-        {
+        while (1) {
             //这个重要 否则就无法退出这个循环了
             static::signalDispatch();
 
@@ -475,16 +449,14 @@ class Worker
             //进入阻塞模式 会一直等待 下面的其他代码只有 捕获子进程退出之后才会执行
             //$pid = pcntl_wait($status,WUNTRACED);
             //非阻塞模式 可以做其他事情
-            $pid = pcntl_wait($status,WNOHANG);
-            if($pid > 0)
-            {
-                static::log('监测到子进程退出 '.$pid);
+            $pid = pcntl_wait($status, WNOHANG);
+            if ($pid > 0) {
+                static::log('监测到子进程退出 ' . $pid);
                 $index = static::getWorkerIndex($pid);
                 unset(static::$_workers[$index]);
 
                 //当不是在停止的时候 启动新进程
-                if(static::$_status !== static::STATUS_SHUTDOWN)
-                {
+                if (static::$_status !== static::STATUS_SHUTDOWN) {
                     static::log('尝试fork新进程');
                     static::forkOneWorker($index);
                 }
@@ -493,6 +465,9 @@ class Worker
             //以下代码 pcntl wait nohang 才能执行的
             //尝试日志逻辑 rotate
             static::logRotate();
+
+            //监听文件变动
+            static::fileWatch();
             sleep(1);
         }
     }
@@ -502,14 +477,48 @@ class Worker
      */
     public static function logRotate()
     {
-        if(floor((time() - static::$_logRotateTime) / static::$logRotate) >= 1)
-        {
+        if (floor((time() - static::$_logRotateTime) / static::$logRotate) >= 1) {
             static::$_logRotateTime = time();
-            static::log('执行日志清理'.static::$_logRotateTime);
+            static::log('执行日志清理' . static::$_logRotateTime);
 
-            $fp = fopen(static::getLogFile(),'r+');
-            ftruncate($fp,0);
+            $fp = fopen(static::getLogFile(), 'r+');
+            ftruncate($fp, 0);
             fclose($fp);
+        }
+    }
+
+    public static function fileWatch()
+    {
+        static $filemtime;
+
+        if (static::$watch) {
+            if (!$filemtime) {
+                $filemtime = filemtime(static::$_script);
+                static::log('文件监测' . static::$_script . ' ' . $filemtime);
+            }
+
+            clearstatcache();
+            if ($filemtime != filemtime(static::$_script)) {
+                $filemtime = filemtime(static::$_script);
+                static::log('文件变化' . static::$_script . ' ' . $filemtime);
+
+                //static::reloadAll();
+                //TODO 这里应该是退出重启 否则不对 因为配置文件不在这里。。。
+                //TODO 思路1 脚本退出 释放脚本唤起自己
+                //TODO 思路2 配置文件化 配置文件和逻辑分离 那么就要监控2个文件（本身+配置）
+
+                $bin = $_SERVER['_'];
+                $argv = $_SERVER['argv'];
+                $script = $argv[0];
+                unset($argv[0]);
+
+                $argv[] = '--reload'; //增加重启命令
+                $argv = array_unique($argv);
+                //尝试执行重启
+                $command = $bin.' '.static::$_script.' '.implode(' ',$argv).' > /dev/null &';
+                static::log($command);
+                @exec($command);
+            }
         }
     }
 
@@ -522,11 +531,11 @@ class Worker
     {
 
         $base = new \EventBase();
-        $timer = new \Event( $base, -1, \Event::TIMEOUT | \Event::PERSIST, function(){
-            static::log('event loop '.time());
-        } );
+        $timer = new \Event($base, -1, \Event::TIMEOUT | \Event::PERSIST, function () {
+            static::log('event loop ' . time());
+        });
         $tick = 2;
-        $timer->add(  $tick );
+        $timer->add($tick);
         //加入这个后 后续就都不执行了 TODO ！！！
         $base->loop();
     }
@@ -540,9 +549,9 @@ class Worker
     public static function isChildAlive($pid)
     {
         $status = 0;
-        $res = pcntl_waitpid($pid,$status,WNOHANG);
+        $res = pcntl_waitpid($pid, $status, WNOHANG);
         //异常 或者退出
-        if($res == -1 || $res > 0){
+        if ($res == -1 || $res > 0) {
             return false;
         }
         return true;
@@ -555,42 +564,46 @@ class Worker
     {
         static::$_status = self::STATUS_SHUTDOWN;
         //尝试发送中止信号
-        foreach(static::$_workers as $index => $pid)
-        {
+        foreach (static::$_workers as $index => $pid) {
             posix_kill($pid, SIGINT);
 //            posix_kill($pid, SIGTERM);
         }
 
         //尝试查询子进程状态
-        foreach(static::$_workers as $index => $pid)
-        {
+        foreach (static::$_workers as $index => $pid) {
             $timeout = 5; //超时时间
             $start = time();
-            while(1)
-            {
+            while (1) {
                 //检查子进程状态
-                if(!static::isChildAlive($pid))
-                {
+                if (!static::isChildAlive($pid)) {
                     unset(static::$_workers[$index]);
                     break;
                 }
                 // 检查是否超过$timeout时间
-                if(time() - $start >= $timeout)
-                {
-                    static::log('关闭子进程失败 '.$pid);
+                if (time() - $start >= $timeout) {
+                    static::log('关闭子进程失败 ' . $pid);
                     break;
                 }
                 usleep(10000);
             }
         }
 
-        if(empty(static::$_workers))
-        {
+        if (empty(static::$_workers)) {
             static::log('所有子进程退出完毕');
+        } else {
+            static::log('部分子进程退出失败 [' . implode(',', static::$_workers) . ']');
         }
-        else
-        {
-            static::log('部分子进程退出失败 ['.implode(',',static::$_workers).']');
+    }
+
+    /**
+     * 进程发送重启信号
+     */
+    protected static function reloadAll()
+    {
+        static::$_status = self::STATUS_RELOADING;
+        //尝试发送重启信号
+        foreach (static::$_workers as $index => $pid) {
+            posix_kill($pid, SIGUSR1);
         }
     }
 
@@ -628,7 +641,7 @@ class Worker
         //尚未用到
         $reg = pcntl_signal(SIGPIPE, SIG_IGN, false);
 
-        static::log('子进程注册信号处理 '.($reg ? '成功':'失败'));
+        static::log('子进程注册信号处理 ' . ($reg ? '成功' : '失败'));
     }
 
     /**
@@ -655,7 +668,7 @@ class Worker
         $reg = pcntl_signal(SIGPIPE, SIG_IGN, false);
 
 
-        static::log('主进程注册信号处理 '.($reg ? '成功':'失败'));
+        static::log('主进程注册信号处理 ' . ($reg ? '成功' : '失败'));
     }
 
     /**
@@ -664,7 +677,7 @@ class Worker
      */
     protected static function signalHandlerMaster($signal)
     {
-        static::log('主进程信号捕获 '.$signal);
+        static::log('主进程信号捕获 ' . $signal);
         switch ($signal) {
             case SIGINT:
 //            case SIGTERM:
@@ -677,6 +690,7 @@ class Worker
             case SIGUSR1:
             case SIGUSR2:
                 static::log('重启');
+                static::stopAll();
                 exit(0);
                 break;
             default:
@@ -690,7 +704,7 @@ class Worker
     public function registerShutdownHandler()
     {
         static::log('注册退出函数');
-        register_shutdown_function(array($this,'shutdownHandler'));
+        register_shutdown_function(array($this, 'shutdownHandler'));
     }
 
     /**
@@ -705,12 +719,11 @@ class Worker
     public static function shutdownHandler()
     {
         $errors = error_get_last();
-        if($errors && ($errors['type'] === E_ERROR ||
+        if ($errors && ($errors['type'] === E_ERROR ||
                 $errors['type'] === E_PARSE ||
                 $errors['type'] === E_CORE_ERROR ||
                 $errors['type'] === E_COMPILE_ERROR ||
-                $errors['type'] === E_RECOVERABLE_ERROR ))
-        {
+                $errors['type'] === E_RECOVERABLE_ERROR)) {
             static::log(static::getErrorType($errors['type']) . " {$errors['message']} in {$errors['file']} on line {$errors['line']}");
         }
 
@@ -719,7 +732,7 @@ class Worker
 
     protected static function signalHandlerChild($signal)
     {
-        static::log('子进程捕获信号 '.$signal);
+        static::log('子进程捕获信号 ' . $signal);
         switch ($signal) {
             case SIGINT:
 //            case SIGTERM:
