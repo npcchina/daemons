@@ -2,7 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="73ce7fd5-838f-4997-bb2b-31a21d68f19b" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/demo/worker.php" beforeDir="false" afterPath="$PROJECT_DIR$/demo/worker.php" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Worker.php" beforeDir="false" afterPath="$PROJECT_DIR$/src/Worker.php" afterDir="false" />
     </list>
@@ -43,20 +42,20 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/demo/worker.php">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="240">
-              <caret line="16" selection-start-line="16" selection-end-line="16" />
+            <state relative-caret-position="255">
+              <caret line="17" lean-forward="true" selection-start-line="17" selection-end-line="17" />
             </state>
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="false">
+      <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/Worker.php">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="331">
-              <caret line="406" column="16" selection-start-line="406" selection-start-column="16" selection-end-line="406" selection-end-column="16" />
+            <state relative-caret-position="238">
+              <caret line="604" column="33" selection-start-line="604" selection-start-column="33" selection-end-line="604" selection-end-column="33" />
             </state>
           </provider>
         </entry>
@@ -134,8 +133,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>child</find>
-      <find>$_pid</find>
       <find>self</find>
       <find>registerSignalHandler</find>
       <find>pcntl_waitpid</find>
@@ -151,7 +148,6 @@
       <find>_debug</find>
       <find>$worker_num</find>
       <find>debug</find>
-      <find>rotate</find>
       <find>$workers</find>
       <find>setP</find>
       <find>$accessKey</find>
@@ -159,11 +155,14 @@
       <find>$_startTime</find>
       <find>$uniqueName</find>
       <find>stopAll</find>
-      <find>stop</find>
       <find>reload</find>
       <find>command</find>
       <find>runAs</find>
       <find>forkOne</find>
+      <find>SIGUSR1</find>
+      <find>reloadAll</find>
+      <find>stop</find>
+      <find>rotate</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -178,8 +177,8 @@
         <option value="$PROJECT_DIR$/test/myTest.php" />
         <option value="$PROJECT_DIR$/demo/binlog.php" />
         <option value="$PROJECT_DIR$/src/Helper/Qiniu.php" />
-        <option value="$PROJECT_DIR$/src/Worker.php" />
         <option value="$PROJECT_DIR$/demo/worker.php" />
+        <option value="$PROJECT_DIR$/src/Worker.php" />
       </list>
     </option>
   </component>
@@ -319,12 +318,12 @@
       <workItem from="1594009010187" duration="539000" />
       <workItem from="1594039963726" duration="521000" />
       <workItem from="1594193066709" duration="3612000" />
-      <workItem from="1597216559152" duration="5839000" />
+      <workItem from="1597216559152" duration="8524000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="66778000" />
+    <option name="totallyTimeSpent" value="69463000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="44" y="23" width="1322" height="745" extended-state="0" />
@@ -505,17 +504,17 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/Worker.php">
+    <entry file="file://$PROJECT_DIR$/demo/worker.php">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="331">
-          <caret line="406" column="16" selection-start-line="406" selection-start-column="16" selection-end-line="406" selection-end-column="16" />
+        <state relative-caret-position="255">
+          <caret line="17" lean-forward="true" selection-start-line="17" selection-end-line="17" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/demo/worker.php">
+    <entry file="file://$PROJECT_DIR$/src/Worker.php">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="240">
-          <caret line="16" selection-start-line="16" selection-end-line="16" />
+        <state relative-caret-position="238">
+          <caret line="604" column="33" selection-start-line="604" selection-start-column="33" selection-end-line="604" selection-end-column="33" />
         </state>
       </provider>
     </entry>

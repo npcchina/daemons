@@ -127,12 +127,10 @@ class Worker
                 exit(0);
             }
         } //平滑重启逻辑
-        else if (isset(static::$arguments['reload']) && $isAlive) {
+        else if ((isset(static::$arguments['reload']) || isset(static::$arguments['restart'])) && $isAlive) {
             //尝试向进程发送重启信号
             posix_kill($pid, SIGUSR1);
-            //TODO 此处的sleep 本意是等待原始进程退出 正确清理 可以存在也可以不存在
-            //TODO 探讨？此处不存在是存在问题：比如 原始业务退出时间过长
-            //sleep(2);
+            exit(0);
         } else if ($isAlive) {
             //进程已经存在 默认退出
             static::log('进程已经运行中 ' . $pid);
@@ -477,6 +475,11 @@ class Worker
      */
     public static function logRotate()
     {
+        //fix bug 记录上次文件修正时间
+        if (!static::$_logRotateTime) {
+            static::$_logRotateTime = filemtime(static::getLogFile());
+        }
+
         if (floor((time() - static::$_logRotateTime) / static::$logRotate) >= 1) {
             static::$_logRotateTime = time();
             static::log('执行日志清理' . static::$_logRotateTime);
@@ -487,6 +490,12 @@ class Worker
         }
     }
 
+    /**
+     * 监控文件变动并重启
+     *
+     * 目前只监测文件本身 TODO 可以指定监测目录？
+     *
+     */
     public static function fileWatch()
     {
         static $filemtime;
@@ -502,22 +511,13 @@ class Worker
                 $filemtime = filemtime(static::$_script);
                 static::log('文件变化' . static::$_script . ' ' . $filemtime);
 
-                //static::reloadAll();
                 //TODO 这里应该是退出重启 否则不对 因为配置文件不在这里。。。
                 //TODO 思路1 脚本退出 释放脚本唤起自己
                 //TODO 思路2 配置文件化 配置文件和逻辑分离 那么就要监控2个文件（本身+配置）
 
-                $bin = $_SERVER['_'];
-                $argv = $_SERVER['argv'];
-                $script = $argv[0];
-                unset($argv[0]);
-
-                $argv[] = '--reload'; //增加重启命令
-                $argv = array_unique($argv);
-                //尝试执行重启
-                $command = $bin.' '.static::$_script.' '.implode(' ',$argv).' > /dev/null &';
-                static::log($command);
-                @exec($command);
+                //
+                //static::restart();
+                posix_kill(static::$_pid, SIGUSR1);
             }
         }
     }
@@ -560,7 +560,7 @@ class Worker
     /**
      * 尝试关闭所有子进程
      */
-    protected static function stopAll()
+    protected static function stop()
     {
         static::$_status = self::STATUS_SHUTDOWN;
         //尝试发送中止信号
@@ -596,15 +596,21 @@ class Worker
     }
 
     /**
-     * 进程发送重启信号
+     * 重启
      */
-    protected static function reloadAll()
+    protected static function restart()
     {
-        static::$_status = self::STATUS_RELOADING;
-        //尝试发送重启信号
-        foreach (static::$_workers as $index => $pid) {
-            posix_kill($pid, SIGUSR1);
-        }
+        //执行重启逻辑
+        $bin = $_SERVER['_'];
+        $argv = $_SERVER['argv'];
+        unset($argv[0]);
+
+        $argv[] = '--reload'; //增加重启命令
+        $argv = array_unique($argv);
+        //尝试执行重启
+        $command = $bin.' '.static::$_script.' '.implode(' ',$argv).' > /dev/null &';
+        static::log($command);
+        @exec($command);
     }
 
     /**
@@ -682,7 +688,7 @@ class Worker
             case SIGINT:
 //            case SIGTERM:
                 static::log('停止');
-                static::stopAll();
+                static::stop();
                 //执行pid 清理？ 测试发现 这个删除与否并不重要 反而不删除可能更好？
                 //@unlink(static::getPidFile());
                 exit(0);
@@ -690,7 +696,8 @@ class Worker
             case SIGUSR1:
             case SIGUSR2:
                 static::log('重启');
-                static::stopAll();
+                static::stop();
+                static::restart();
                 exit(0);
                 break;
             default:
