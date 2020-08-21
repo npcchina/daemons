@@ -130,7 +130,24 @@ class Worker
         else if ((isset(static::$arguments['reload']) || isset(static::$arguments['restart'])) && $isAlive) {
             //尝试向进程发送重启信号
             posix_kill($pid, SIGUSR1);
-            exit(0);
+            $timeout = 5; //超时时间
+            $start = time();
+            while (1) {
+                // 检查主进程是否存活
+                $isAlive = posix_kill($pid, 0);
+                if ($isAlive) {
+                    // 检查是否超过$timeout时间
+                    if (time() - $start >= $timeout) {
+                        static::log('尝试重启失败');
+                    }
+                    usleep(10000);
+                    continue;
+                }
+                //此处因为还没有 fork 所以不存在 $_pid 是可以在 log 中 exit 的
+                static::log('重启进程执行成功');
+                //所以下面的 exit 被省略了 依然能够退出
+                exit(0);
+            }
         } else if ($isAlive) {
             //进程已经存在 默认退出
             static::log('进程已经运行中 ' . $pid);

@@ -4,7 +4,8 @@
     "require": {
         "krowinski/php-mysql-replication": "^6.2",
         "predis/predis": "^1.1",
-        "qiniu/php-sdk": "^7.2"
+        "qiniu/php-sdk": "^7.2",
+        "guzzlehttp/guzzle": "^7.0"
     },
     "license": "MIT",
     "authors": [
