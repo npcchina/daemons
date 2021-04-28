@@ -1,3 +1,5 @@
 /vendor/
+/demo/
+/test/
 composer.lock
 .idea

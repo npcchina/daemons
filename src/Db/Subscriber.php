@@ -26,6 +26,7 @@ class Subscriber extends EventSubscribers
     private $binLogPosition = null;
 
     public $onMessage = null;
+    public static $autoRecord = false;
 
     function __construct()
     {
@@ -271,7 +272,7 @@ class Subscriber extends EventSubscribers
     protected function allEvents(EventDTO $event): void
     {
         $this->onMessage && call_user_func($this->onMessage,$event);
-        $this->recordLastRun($event);
+        self::$autoRecord && $this->recordLastRun($event);
     }
 
     public function run()

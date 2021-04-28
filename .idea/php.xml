@@ -25,6 +25,13 @@
       <path value="$PROJECT_DIR$/vendor/ralouphie/getallheaders" />
       <path value="$PROJECT_DIR$/vendor/psr/http-client" />
       <path value="$PROJECT_DIR$/vendor/psr/http-message" />
+      <path value="$PROJECT_DIR$/vendor/nmred/kafka-php" />
+      <path value="$PROJECT_DIR$/vendor/amphp/amp" />
+      <path value="$PROJECT_DIR$/vendor/psr/log" />
+      <path value="$PROJECT_DIR$/vendor/queue-interop/queue-interop" />
+      <path value="$PROJECT_DIR$/vendor/enqueue/rdkafka" />
+      <path value="$PROJECT_DIR$/vendor/kwn/php-rdkafka-stubs" />
+      <path value="$PROJECT_DIR$/vendor/monolog/monolog" />
     </include_path>
   </component>
 </project>
