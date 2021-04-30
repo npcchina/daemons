@@ -19,13 +19,17 @@
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/composer.json">
-          <provider selected="true" editor-type-id="text-editor" />
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="90">
+              <caret line="6" column="33" selection-start-line="6" selection-start-column="33" selection-end-line="6" selection-end-column="33" />
+            </state>
+          </provider>
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/Helper/Mysql.php">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-1348">
+            <state relative-caret-position="45">
               <caret line="3" column="4" selection-start-line="3" selection-start-column="4" selection-end-line="3" selection-end-column="4" />
               <folding>
                 <element signature="e#29#78#0#PHP" expanded="true" />
@@ -97,6 +101,7 @@
     <option name="CHANGED_PATHS">
       <list>
         <option value="$PROJECT_DIR$/src/Db/Subscriber.php" />
+        <option value="$PROJECT_DIR$/composer.json" />
       </list>
     </option>
   </component>
@@ -118,14 +123,9 @@
       <path value="$PROJECT_DIR$/vendor/symfony/dependency-injection" />
       <path value="$PROJECT_DIR$/vendor/symfony/polyfill-php80" />
       <path value="$PROJECT_DIR$/vendor/symfony/event-dispatcher-contracts" />
-      <path value="$PROJECT_DIR$/vendor/qiniu/php-sdk" />
-      <path value="$PROJECT_DIR$/vendor/kwn/php-rdkafka-stubs" />
-      <path value="$PROJECT_DIR$/vendor/queue-interop/queue-interop" />
-      <path value="$PROJECT_DIR$/vendor/enqueue/rdkafka" />
       <path value="$PROJECT_DIR$/vendor/monolog/monolog" />
-      <path value="$PROJECT_DIR$/vendor/nmred/kafka-php" />
-      <path value="$PROJECT_DIR$/vendor/amphp/amp" />
       <path value="$PROJECT_DIR$/vendor/psr/log" />
+      <path value="$PROJECT_DIR$/vendor/doctrine/deprecations" />
     </include_path>
   </component>
   <component name="ProjectFrameBounds">
@@ -211,15 +211,16 @@
       <option name="presentableId" value="Default" />
       <updated>1619597672865</updated>
       <workItem from="1619597674621" duration="664000" />
-      <workItem from="1619769552586" duration="787000" />
+      <workItem from="1619769552586" duration="1171000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="1482000" />
+    <option name="totallyTimeSpent" value="1866000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="78" y="25" width="1395" height="875" extended-state="0" />
+    <editor active="true" />
     <layout>
       <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.34146342" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
@@ -296,16 +297,6 @@
         <state relative-caret-position="-421" />
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/Helper/Mysql.php">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-1348">
-          <caret line="3" column="4" selection-start-line="3" selection-start-column="4" selection-end-line="3" selection-end-column="4" />
-          <folding>
-            <element signature="e#29#78#0#PHP" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/Helper/Qiniu.php">
       <provider selected="true" editor-type-id="text-editor" />
     </entry>
@@ -318,8 +309,22 @@
     <entry file="file://$PROJECT_DIR$/composer.lock">
       <provider selected="true" editor-type-id="text-editor" />
     </entry>
+    <entry file="file://$PROJECT_DIR$/src/Helper/Mysql.php">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="45">
+          <caret line="3" column="4" selection-start-line="3" selection-start-column="4" selection-end-line="3" selection-end-column="4" />
+          <folding>
+            <element signature="e#29#78#0#PHP" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/composer.json">
-      <provider selected="true" editor-type-id="text-editor" />
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="90">
+          <caret line="6" column="33" selection-start-line="6" selection-start-column="33" selection-end-line="6" selection-end-column="33" />
+        </state>
+      </provider>
     </entry>
   </component>
 </project>
